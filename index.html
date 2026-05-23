@@ -85,25 +85,6 @@ button.secondary:disabled{background:#ccc;border-color:#ccc;cursor:not-allowed}
 .section-toggle::before{content:'▸';transition:transform 0.15s;display:inline-block}
 .section-toggle.open::before{content:'▾'}
 </style>
-<script>
-// 禁用右键
-document.addEventListener('contextmenu', e => e.preventDefault());
-// 禁止查看源码快捷键
-document.addEventListener('keydown', e => {
-  if (e.key === 'F12' ||
-      (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-      (e.ctrlKey && e.key === 'u')) {
-    e.preventDefault();
-  }
-});
-</script>
-<style>
-/* 禁止选中文字 */
-body {
-  user-select: none;
-  -webkit-user-select: none;
-}
-</style>
 </head>
 <body>
 <h1>运动记录解析工具 v5</h1>
