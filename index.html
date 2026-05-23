@@ -96,21 +96,19 @@ button.secondary:disabled{background:#ccc;border-color:#ccc;cursor:not-allowed}
     <div class="col">
       <label>Detail 格式定义（.h 头文件）</label>
       <div class="format-row">
-        <span class="format-label">默认</span>
-        <span class="fn" id="def-detail-h" title="D:/360驱动大师目录/sport_record_save_detail.h">D:/360驱动大师目录/sport_record_save_detail.h</span>
+        <span class="format-label" id="label-detail-h">默认</span>
+        <span class="fn" id="def-detail-h" title="">（内置默认）</span>
         <input type="file" id="file-detail-h" accept=".h" onchange="onDetailH(this)">
         <button onclick="document.getElementById('file-detail-h').click()" style="padding:4px 10px;font-size:11px">选择</button>
-        <span id="custom-detail-h-name" class="hint" style="display:none"></span>
       </div>
       <div class="hint" style="margin-top:4px">定义 detail.data 的 TLV 结构（TAG 枚举、结构体字段）</div>
 
       <label style="margin-top:14px">Summary 格式定义（.proto）</label>
       <div class="format-row">
-        <span class="format-label">默认</span>
-        <span class="fn" id="def-summary-proto" title="D:\360Downloads\sport_summary.proto">D:\360Downloads\sport_summary.proto</span>
+        <span class="format-label" id="label-summary-proto">默认</span>
+        <span class="fn" id="def-summary-proto" title="">（内置默认）</span>
         <input type="file" id="file-summary-proto" accept=".proto" onchange="onSummaryProto(this)">
         <button onclick="document.getElementById('file-summary-proto').click()" style="padding:4px 10px;font-size:11px">选择</button>
-        <span id="custom-summary-proto-name" class="hint" style="display:none"></span>
       </div>
       <div class="hint" style="margin-top:4px">定义 summary.data 的 Protobuf 消息结构（SportSummaryMessage）</div>
     </div>
@@ -851,8 +849,49 @@ function updateButtons() {
 }
 function onDetailFile(inp){detailFile=inp.files[0];if(!detailFile)return;const z=document.getElementById('zone-detail');z.classList.add('has-file');z.innerHTML=`<div class="fn">${detailFile.name}</div><div class="hint">${(detailFile.size/1024).toFixed(1)} KB</div>`;updateButtons();}
 function onSummaryFile(inp){summaryFile=inp.files[0];if(!summaryFile)return;const z=document.getElementById('zone-summary');z.classList.add('has-file');z.innerHTML=`<div class="fn">${summaryFile.name}</div><div class="hint">${(summaryFile.size/1024).toFixed(1)} KB</div>`;updateButtons();}
-function onDetailH(inp){if(inp.files[0]){document.getElementById('custom-detail-h-name').textContent=inp.files[0].name;document.getElementById('custom-detail-h-name').style.display='';}}
-function onSummaryProto(inp){if(inp.files[0]){document.getElementById('custom-summary-proto-name').textContent=inp.files[0].name;document.getElementById('custom-summary-proto-name').style.display='';}}
+function onDetailH(inp){
+  if(inp.files[0]){
+    const f=inp.files[0];
+    document.getElementById('label-detail-h').textContent='自定义';
+    document.getElementById('label-detail-h').style.background='#d1fae5';
+    document.getElementById('label-detail-h').style.color='#065f46';
+    document.getElementById('def-detail-h').textContent=f.name;
+    document.getElementById('def-detail-h').title=f.name;
+    try{localStorage.setItem('sport_parser_detail_h_name',f.name);}catch(e){}
+  }
+}
+function onSummaryProto(inp){
+  if(inp.files[0]){
+    const f=inp.files[0];
+    document.getElementById('label-summary-proto').textContent='自定义';
+    document.getElementById('label-summary-proto').style.background='#d1fae5';
+    document.getElementById('label-summary-proto').style.color='#065f46';
+    document.getElementById('def-summary-proto').textContent=f.name;
+    document.getElementById('def-summary-proto').title=f.name;
+    try{localStorage.setItem('sport_parser_summary_proto_name',f.name);}catch(e){}
+  }
+}
+// 页面加载时恢复上次保存的文件名
+(function restoreSavedNames(){
+  try{
+    const hn=localStorage.getItem('sport_parser_detail_h_name');
+    if(hn){
+      document.getElementById('label-detail-h').textContent='自定义';
+      document.getElementById('label-detail-h').style.background='#d1fae5';
+      document.getElementById('label-detail-h').style.color='#065f46';
+      document.getElementById('def-detail-h').textContent=hn;
+      document.getElementById('def-detail-h').title=hn+'（上次选择，请重新选择文件以确认）';
+    }
+    const pn=localStorage.getItem('sport_parser_summary_proto_name');
+    if(pn){
+      document.getElementById('label-summary-proto').textContent='自定义';
+      document.getElementById('label-summary-proto').style.background='#d1fae5';
+      document.getElementById('label-summary-proto').style.color='#065f46';
+      document.getElementById('def-summary-proto').textContent=pn;
+      document.getElementById('def-summary-proto').title=pn+'（上次选择，请重新选择文件以确认）';
+    }
+  }catch(e){}
+})();
 
 // Detail 独立 status/log/progress
 function setDetailStatus(msg,type){const el=document.getElementById('parse-status-detail');el.textContent=msg;el.className='status'+(type?' '+type:'');}
