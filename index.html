@@ -38,10 +38,13 @@ button.secondary:disabled{background:#ccc;border-color:#ccc;cursor:not-allowed}
 .tag-card{background:#f9f9f7;border-radius:8px;padding:10px 12px;cursor:default;border:0.5px solid transparent;transition:border-color 0.15s,background 0.15s}
 .tag-card.clickable{cursor:pointer}
 .tag-card.clickable:hover{background:#FCEBEB;border-color:#E24B4A}
+.tag-card.clickable-json:hover{background:#EFF6FF;border-color:#3B82F6}
 .tag-card.selected{background:#FCEBEB;border-color:#E24B4A}
+.tag-card.selected-json{background:#EFF6FF;border-color:#3B82F6}
 .tag-card.has-error{background:#fff5f5;border-color:#e87a7a}
 .tname{font-size:12px;font-weight:500}
 .tcount{font-size:22px;font-weight:500;color:#E24B4A;margin-top:2px}
+.tcount-blue{font-size:22px;font-weight:500;color:#3B82F6;margin-top:2px}
 .terror{font-size:11px;color:#A32D2D;margin-top:2px}
 .metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin:10px 0}
 .metric{background:#f9f9f7;border-radius:8px;padding:10px}
@@ -84,11 +87,31 @@ button.secondary:disabled{background:#ccc;border-color:#ccc;cursor:not-allowed}
 .section-toggle{font-size:13px;font-weight:500;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
 .section-toggle::before{content:'▸';transition:transform 0.15s;display:inline-block}
 .section-toggle.open::before{content:'▾'}
+
+/* ── Tab 切换 ── */
+.tab-bar{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid rgba(0,0,0,0.08)}
+.tab-btn{padding:10px 24px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color 0.15s,border-color 0.15s;font-family:inherit}
+.tab-btn:hover{color:#1a1a1a}
+.tab-btn.active{color:#E24B4A;border-bottom-color:#E24B4A}
+.tab-btn.active-blue{color:#3B82F6;border-bottom-color:#3B82F6}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── JSON 查看器 ── */
+.json-viewer-card{background:#fff;border:0.5px solid rgba(0,0,0,0.12);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+.json-header{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.json-header h2{margin:0}
+.json-badge{font-size:11px;background:#EFF6FF;color:#3B82F6;border:0.5px solid #BFDBFE;border-radius:4px;padding:2px 8px}
+.json-toolbar{display:flex;gap:6px;align-items:center;flex:1;justify-content:flex-end;flex-wrap:wrap}
+.json-search{padding:5px 10px;border:0.5px solid rgba(0,0,0,0.2);border-radius:6px;font-size:12px;font-family:inherit;width:200px;outline:none}
+.json-search:focus{border-color:#3B82F6;box-shadow:0 0 0 2px rgba(59,130,246,0.1)}
+.json-body{font-family:monospace;font-size:11.5px;line-height:1.7;max-height:600px;overflow-y:auto;background:#f9f9f7;border-radius:8px;padding:12px 14px;white-space:pre-wrap;word-break:break-all;user-select:text;-webkit-user-select:text}
+.json-body mark{background:#FEF08A;color:inherit;border-radius:2px}
+.json-pager{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:#666}
+.json-pager button{padding:3px 10px;font-size:12px}
 </style>
 <script>
-// 禁用右键
 document.addEventListener('contextmenu', e => e.preventDefault());
-// 禁止查看源码快捷键
 document.addEventListener('keydown', e => {
   if (e.key === 'F12' ||
       (e.ctrlKey && e.shiftKey && e.key === 'I') ||
@@ -98,11 +121,7 @@ document.addEventListener('keydown', e => {
 });
 </script>
 <style>
-/* 禁止选中文字 */
-body {
-  user-select: none;
-  -webkit-user-select: none;
-}
+body{user-select:none;-webkit-user-select:none}
 </style>
 </head>
 <body>
@@ -121,8 +140,9 @@ body {
         <button onclick="document.getElementById('file-detail-h').click()" style="padding:4px 10px;font-size:11px">选择</button>
       </div>
       <div class="hint" style="margin-top:4px">定义 detail.data 的 TLV 结构（TAG 枚举、结构体字段）</div>
-
-      <label style="margin-top:14px">Summary 格式定义（.proto）</label>
+    </div>
+    <div class="col">
+      <label>Summary 格式定义（.proto）</label>
       <div class="format-row">
         <span class="format-label" id="label-summary-proto">默认</span>
         <span class="fn" id="def-summary-proto" title="">（内置默认）</span>
@@ -134,101 +154,143 @@ body {
   </div>
 </div>
 
-<!-- Detail 文件选择 + 操作 -->
-<div class="card">
-  <div class="row">
-    <div class="col">
-      <h2>📂 Detail.data 解析</h2>
-      <label>选择 detail.data 文件</label>
-      <div class="upload-zone" id="zone-detail" onclick="document.getElementById('file-detail').click()">
-        <div class="upload-icon">📂</div>
-        <span class="hint" id="hint-detail">点击选择 detail.data 文件</span>
+<!-- Tab 切换栏 -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-btn-detail" onclick="switchTab('detail')">📂 Detail.data 解析</button>
+  <button class="tab-btn" id="tab-btn-summary" onclick="switchTab('summary')">📄 Summary.data 解析</button>
+</div>
+
+<!-- ════════════════ Detail Tab ════════════════ -->
+<div class="tab-panel active" id="tab-detail">
+
+  <!-- Detail 文件选择 + 操作 -->
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label>选择 detail.data 文件</label>
+        <div class="upload-zone" id="zone-detail" onclick="document.getElementById('file-detail').click()">
+          <div class="upload-icon">📂</div>
+          <span class="hint" id="hint-detail">点击选择 detail.data 文件</span>
+        </div>
+        <input type="file" id="file-detail" onchange="onDetailFile(this)">
+        <p style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">
+          按 sport_record_save_detail.h 头文件定义，RTL-Length 编码 TLV 逐条解析。遇到无效数据停止并标记。
+        </p>
       </div>
-      <input type="file" id="file-detail" onchange="onDetailFile(this)">
-      <p style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">
-        按 sport_record_save_detail.h 头文件定义，RTL-Length 编码 TLV 逐条解析。遇到无效数据停止并标记。
-      </p>
-    </div>
-    <div class="col">
-      <h2>&nbsp;</h2>
-      <button class="primary" id="btn-parse-detail" disabled onclick="doParseDetail()">解析 Detail →</button>
-      &nbsp;
-      <button id="btn-dl" style="display:none" onclick="doDownload()">下载 JSON ↓</button>
-      <div class="prog" id="prog-detail"><div class="prog-bar" id="prog-bar"></div></div>
-      <div class="status" id="parse-status-detail" style="margin-top:8px"></div>
-      <div class="log" id="parse-log-detail" style="display:none"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Detail 结果区 -->
-<div id="result-detail" style="display:none">
-  <div class="error-detail" id="error-block" style="display:none">
-    <h4>⚠️ Detail 解析错误 / 数据异常（遇到以下问题后停止继续解析）</h4>
-    <ul id="error-list"></ul>
-  </div>
-  <div class="card" id="card-detail-stats" style="display:none">
-    <h2>📊 Detail 数据类型统计</h2>
-    <div class="metrics" id="metrics-wrap"></div>
-    <div class="divider"></div>
-    <h3>TAG 分布（点击可查看图表）</h3>
-    <div class="tag-grid" id="tag-grid"></div>
-  </div>
-  <div class="card" id="card-chart" style="display:none">
-    <h2 id="chart-title">图表</h2>
-    <div class="chart-tabs" id="chart-tabs"></div>
-    <div class="metrics" id="chart-metrics"></div>
-    <div class="chart-wrap">
-      <canvas id="mainChart"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- Summary 文件选择 + 操作 -->
-<div class="card">
-  <div class="row">
-    <div class="col">
-      <h2>📄 Summary.data 解析</h2>
-      <label>选择 summary.data 文件</label>
-      <div class="upload-zone" id="zone-summary" onclick="document.getElementById('file-summary').click()">
-        <div class="upload-icon">📄</div>
-        <span class="hint" id="hint-summary">点击选择 summary.data 文件</span>
+      <div class="col">
+        <label style="visibility:hidden">操作</label>
+        <button class="primary" id="btn-parse-detail" disabled onclick="doParseDetail()">解析 Detail →</button>
+        &nbsp;
+        <button id="btn-dl" style="display:none" onclick="doDownload()">下载 JSON ↓</button>
+        <div class="prog" id="prog-detail"><div class="prog-bar" id="prog-bar"></div></div>
+        <div class="status" id="parse-status-detail" style="margin-top:8px"></div>
+        <div class="log" id="parse-log-detail" style="display:none"></div>
       </div>
-      <input type="file" id="file-summary" onchange="onSummaryFile(this)">
-      <p style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">
-        按 sport_summary.proto 定义，nanopb 编码 Protobuf 解码。文件前 2 字节为固件头部 [0x00, 0x80]。
-      </p>
-    </div>
-    <div class="col">
-      <h2>&nbsp;</h2>
-      <button class="secondary" id="btn-parse-summary" disabled onclick="doParseSummary()">解析 Summary →</button>
-      <div class="status" id="parse-status-summary" style="margin-top:8px"></div>
-      <div class="log" id="parse-log-summary" style="display:none"></div>
     </div>
   </div>
-</div>
 
-<!-- Summary 结果区 -->
-<div id="result-summary" style="display:none">
-  <div class="card" id="card-summary" style="display:none">
-    <h2>📋 Summary.data <span style="font-size:11px;color:#888;font-weight:400">（Protobuf 解码）</span></h2>
-    <div id="summary-content"></div>
+  <!-- Detail 结果区 -->
+  <div id="result-detail" style="display:none">
+    <div class="error-detail" id="error-block" style="display:none">
+      <h4>⚠️ Detail 解析错误 / 数据异常（遇到以下问题后停止继续解析）</h4>
+      <ul id="error-list"></ul>
+    </div>
+    <div class="card" id="card-detail-stats" style="display:none">
+      <h2>📊 Detail 数据类型统计</h2>
+      <div class="metrics" id="metrics-wrap"></div>
+      <div class="divider"></div>
+      <h3>TAG 分布 <span style="font-size:11px;font-weight:400;color:#888">— 📈 点击查看图表 | 🗂️ 点击查看全部 JSON 数据</span></h3>
+      <div class="tag-grid" id="tag-grid"></div>
+    </div>
+    <!-- 图表区 -->
+    <div class="card" id="card-chart" style="display:none">
+      <h2 id="chart-title">图表</h2>
+      <div class="chart-tabs" id="chart-tabs"></div>
+      <div class="metrics" id="chart-metrics"></div>
+      <div class="chart-wrap">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+    <!-- JSON 查看器 -->
+    <div class="json-viewer-card" id="card-json-viewer" style="display:none">
+      <div class="json-header">
+        <h2 id="json-viewer-title">TAG 数据</h2>
+        <span class="json-badge" id="json-viewer-badge">0 条</span>
+        <div class="json-toolbar">
+          <input class="json-search" id="json-search-input" type="text" placeholder="搜索字段或值..." oninput="onJsonSearch(this.value)">
+          <button onclick="doDownloadTagJson()" style="font-size:12px;padding:5px 12px">下载 JSON ↓</button>
+          <button onclick="closeJsonViewer()" style="font-size:12px;padding:5px 12px;color:#888">✕ 关闭</button>
+        </div>
+      </div>
+      <div class="json-pager" id="json-pager" style="display:none">
+        <span id="json-pager-info"></span>
+        <button onclick="jsonPagePrev()">‹ 上一页</button>
+        <button onclick="jsonPageNext()">下一页 ›</button>
+        <span style="color:#aaa;font-size:11px">每页 200 条</span>
+      </div>
+      <div class="json-body" id="json-body"></div>
+    </div>
   </div>
-  <div class="error-detail" id="error-block-summary" style="display:none">
-    <h4>⚠️ Summary 解析错误</h4>
-    <ul id="error-list-summary"></ul>
+
+</div><!-- /tab-detail -->
+
+<!-- ════════════════ Summary Tab ════════════════ -->
+<div class="tab-panel" id="tab-summary">
+
+  <!-- Summary 文件选择 + 操作 -->
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label>选择 summary.data 文件</label>
+        <div class="upload-zone" id="zone-summary" onclick="document.getElementById('file-summary').click()">
+          <div class="upload-icon">📄</div>
+          <span class="hint" id="hint-summary">点击选择 summary.data 文件</span>
+        </div>
+        <input type="file" id="file-summary" onchange="onSummaryFile(this)">
+        <p style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">
+          按 sport_summary.proto 定义，nanopb 编码 Protobuf 解码。文件前 2 字节为固件头部 [0x00, 0x80]。
+        </p>
+      </div>
+      <div class="col">
+        <label style="visibility:hidden">操作</label>
+        <button class="secondary" id="btn-parse-summary" disabled onclick="doParseSummary()">解析 Summary →</button>
+        <div class="status" id="parse-status-summary" style="margin-top:8px"></div>
+        <div class="log" id="parse-log-summary" style="display:none"></div>
+      </div>
+    </div>
   </div>
-</div>
+
+  <!-- Summary 结果区 -->
+  <div id="result-summary" style="display:none">
+    <div class="card" id="card-summary" style="display:none">
+      <h2>📋 Summary.data <span style="font-size:11px;color:#888;font-weight:400">（Protobuf 解码）</span></h2>
+      <div id="summary-content"></div>
+    </div>
+    <div class="error-detail" id="error-block-summary" style="display:none">
+      <h4>⚠️ Summary 解析错误</h4>
+      <ul id="error-list-summary"></ul>
+    </div>
+  </div>
+
+</div><!-- /tab-summary -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
-//  Protobuf Schema（基于 D:\360Downloads\sport_summary.proto）
+//  Tab 切换
 // ══════════════════════════════════════════════════════════════════
-// 格式: [field_number, 'fieldName', 'type_spec']
-// type_spec: u32|s32|i32|u64|s64|i64|f32|f64|bool|str|bytes
-//           msg:MsgName  (子消息)
-//           r:type_spec  (repeated)
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.remove('active-blue'); });
+  document.getElementById('tab-' + name).classList.add('active');
+  const btn = document.getElementById('tab-btn-' + name);
+  if (name === 'summary') btn.classList.add('active-blue');
+  else btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Protobuf Schema
+// ══════════════════════════════════════════════════════════════════
 const PROTO_SCHEMA = {
 TypeMessage:[[1,'type','u32'],[2,'subtype','u32'],[3,'runningType','u32'],[4,'runningProgram','u32']],
 DistanceMessage:[[1,'distance','f32'],[2,'displayType','bool'],[3,'unit','u32'],[4,'equivDistance','u32']],
@@ -285,7 +347,6 @@ HyroxSimulateMessage:[[1,'totalMuscularExertion','f32'],[2,'totalCardiacExertion
 SportSummaryMessage:[[1,'version','str'],[2,'record','msg:RecordMessage'],[3,'type','msg:TypeMessage'],[4,'distance','msg:DistanceMessage'],[5,'number','msg:NumberMessage'],[6,'downhill','msg:DownhillMessage'],[7,'times','msg:TimeMessage'],[8,'floors','msg:FloorsMessage'],[9,'swim','msg:SwimMessage'],[10,'pace','msg:PaceMessage'],[11,'steps','msg:StepsMessage'],[13,'altitude','msg:AltitudeMessage'],[14,'slope','msg:SlopeMessage'],[15,'swing','msg:SWingMessage'],[16,'calories','msg:CaloriesMessage'],[17,'rowing','msg:RowingMessage'],[18,'frequency','msg:FrequencyMessage'],[19,'heartRate','msg:HeartRateMessage'],[20,'temp','msg:TempMessage'],[21,'other','msg:OtherMessage'],[22,'hrZone','msg:HeartrateZoneMessage'],[23,'slopeChart','msg:SlopeChartMessage'],[26,'marathon','r:msg:MarathonMessage'],[27,'pressure','msg:PressureMessage'],[28,'Goal','msg:GoalMessage'],[29,'Golf','msg:GolfMessage'],[30,'Power','msg:PowerMessage'],[31,'Dive','msg:DiveMessage'],[32,'skyDiving','msg:SkyDivingMessage'],[33,'cadence','msg:CadenceMessage'],[34,'pbInfo','r:msg:PbMessage'],[35,'runPower','msg:RunPowerMessage'],[36,'climbing','msg:ClimbingMessage'],[37,'surfing','msg:SurfingMessage'],[38,'fishing','msg:FishingMessage'],[39,'barometer','msg:BarometerMessage'],[40,'timeMs','msg:TimeMsMessage'],[41,'phn','msg:PHNMessage'],[42,'assessScore','msg:AssessScoreMessage'],[43,'hyrox','r:msg:HyroxMessage'],[44,'weather','msg:WeatherMessage'],[45,'runposture','msg:RunPostureMessage'],[46,'golfCourse','msg:GolfCourseMessage'],[47,'roxZone','msg:RoxZoneMessage'],[48,'crossfit','r:msg:CrossfitMessage'],[49,'RecDive','msg:RecDiveMessage'],[50,'stryd','msg:StrydMessage'],[51,'thirdPartyData','msg:ThirdPartyDataMessage'],[52,'ltThData','msg:LactateThresholdDataMessage'],[53,'equipmentData','msg:SportEquipDataMessage'],[55,'hyroxSimulate','msg:HyroxSimulateMessage']],
 };
 
-// Message 名称映射（用于显示友好名称）
 const MSG_LABELS = {
   SportSummaryMessage:'SportSummary', TypeMessage:'运动类型', DistanceMessage:'距离',
   NumberMessage:'计数', PressureMessage:'压力', DownhillMessage:'滑降',
@@ -328,11 +389,8 @@ function pbDecodeMessage(buf, msgName) {
   const fields = {};
   const errors = [];
   let off = 0;
-  // Build field lookup
   const fieldMap = {};
-  for(const [num, name, typeSpec] of schema) {
-    fieldMap[num] = {name, typeSpec};
-  }
+  for(const [num, name, typeSpec] of schema) { fieldMap[num] = {name, typeSpec}; }
 
   while(off < buf.length) {
     const {value: key, offset: keyOff} = pbReadVarint(buf, off);
@@ -345,156 +403,84 @@ function pbDecodeMessage(buf, msgName) {
     const fieldLabel = fieldNum + '(' + fieldName + ')';
 
     try {
-      if(wireType === 0) { // Varint
+      if(wireType === 0) {
         const {value, offset} = pbReadVarint(buf, off);
         off = offset;
         if(fieldDef) {
           const {name, typeSpec} = fieldDef;
           const baseType = typeSpec.startsWith('r:') ? typeSpec.slice(2) : typeSpec;
           const decoded = decodeVarintValue(value, baseType);
-          if(typeSpec.startsWith('r:')) {
-            if(!fields[name]) fields[name] = [];
-            fields[name].push(decoded);
-          } else {
-            fields[name] = decoded;
-          }
-        } else {
-          fields['_unknown_'+fieldNum] = Number(value);
-        }
-      } else if(wireType === 1) { // 64-bit
-        if(off + 8 > buf.length) {
-          // 64位字段需要的8字节超出buffer末尾
-          errors.push(`field ${fieldLabel}: 读取64位数据时越界 (offset=${off}, 剩余${buf.length-off}B, 需要8B) — 可能是数据截断或proto schema与实际编码不匹配`);
-          // 尝试跳过：如果剩余不足8字节，无法恢复，中断
-          break;
-        }
+          if(typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(decoded); }
+          else { fields[name] = decoded; }
+        } else { fields['_unknown_'+fieldNum] = Number(value); }
+      } else if(wireType === 1) {
+        if(off + 8 > buf.length) { errors.push(`field ${fieldLabel}: 读取64位数据时越界 (offset=${off}, 剩余${buf.length-off}B, 需要8B)`); break; }
         if(fieldDef) {
           const {name, typeSpec} = fieldDef;
           const baseType = typeSpec.startsWith('r:') ? typeSpec.slice(2) : typeSpec;
           let val;
           try {
             const dv = new DataView(buf.buffer, buf.byteOffset + off, 8);
-            if(baseType === 'f64') {
-              val = dv.getFloat64(true);
-            } else if(baseType === 's64') {
-              val = Number(dv.getBigInt64(true));
-            } else if(baseType === 'i64') {
-              val = Number(dv.getBigInt64(true));
-            } else { // u64, fixed64
-              val = Number(dv.getBigUint64(true));
-            }
-            if(typeSpec.startsWith('r:')) {
-              if(!fields[name]) fields[name] = [];
-              fields[name].push(val);
-            } else {
-              fields[name] = val;
-            }
-          } catch(e) {
-            errors.push(`field ${fieldLabel}: 64位 ${baseType} 解码失败 — ${e.message}`);
-            break;
-          }
+            if(baseType === 'f64') val = dv.getFloat64(true);
+            else if(baseType === 's64') val = Number(dv.getBigInt64(true));
+            else if(baseType === 'i64') val = Number(dv.getBigInt64(true));
+            else val = Number(dv.getBigUint64(true));
+            if(typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(val); }
+            else { fields[name] = val; }
+          } catch(e) { errors.push(`field ${fieldLabel}: 64位 ${baseType} 解码失败 — ${e.message}`); break; }
         }
         off += 8;
-      } else if(wireType === 2) { // Length-delimited
+      } else if(wireType === 2) {
         const {value: len, offset: lenOff} = pbReadVarint(buf, off);
         if(lenOff > buf.length) { errors.push(`field ${fieldLabel}: 读取length时越界`); break; }
         off = lenOff;
         const lenN = Number(len);
-        if(off + lenN > buf.length) {
-          errors.push(`field ${fieldLabel}: length-delimited 数据不完整 (声明${lenN}B, 剩余${buf.length-off}B) — 可能是数据截断`);
-          break;
-        }
+        if(off + lenN > buf.length) { errors.push(`field ${fieldLabel}: length-delimited 数据不完整 (声明${lenN}B, 剩余${buf.length-off}B)`); break; }
         const subBuf = buf.slice(off, off + lenN);
         off += lenN;
-
         if(fieldDef) {
           const {name, typeSpec} = fieldDef;
           const baseType = typeSpec.startsWith('r:') ? typeSpec.slice(2) : typeSpec;
-
           if(baseType === 'str') {
             const val = new TextDecoder('utf-8', {fatal:false}).decode(subBuf);
-            if(typeSpec.startsWith('r:')) {
-              if(!fields[name]) fields[name] = [];
-              fields[name].push(val);
-            } else {
-              fields[name] = val;
-            }
+            if(typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(val); }
+            else { fields[name] = val; }
           } else if(baseType.startsWith('msg:')) {
             const subMsg = baseType.slice(4);
             const decoded = pbDecodeMessage(subBuf, subMsg);
-            if(decoded._errors) {
-              errors.push(...decoded._errors.map(e => `field ${fieldLabel}.${e}`));
-            }
-            if(typeSpec.startsWith('r:')) {
-              if(!fields[name]) fields[name] = [];
-              fields[name].push(decoded);
-            } else {
-              fields[name] = decoded;
-            }
+            if(decoded._errors) errors.push(...decoded._errors.map(e => `field ${fieldLabel}.${e}`));
+            if(typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(decoded); }
+            else { fields[name] = decoded; }
           } else {
-            // Packed repeated scalar
             try {
               const decoded = decodePackedRepeated(subBuf, baseType);
-              if(fieldDef.typeSpec.startsWith('r:')) {
-                if(!fields[name]) fields[name] = [];
-                fields[name].push(...decoded);
-              } else {
-                fields[name] = decoded;
-              }
-            } catch(e) {
-              errors.push(`field ${fieldLabel}: packed repeated ${baseType} 解码失败 — ${e.message}`);
-            }
+              if(fieldDef.typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(...decoded); }
+              else { fields[name] = decoded; }
+            } catch(e) { errors.push(`field ${fieldLabel}: packed repeated ${baseType} 解码失败 — ${e.message}`); }
           }
-        } else {
-          fields['_unknown_'+fieldNum] = `bytes[${lenN}]`;
-        }
-      } else if(wireType === 5) { // 32-bit
-        if(off + 4 > buf.length) {
-          errors.push(`field ${fieldLabel}: 读取32位数据时越界 (offset=${off}, 剩余${buf.length-off}B, 需要4B) — 可能是数据截断或proto schema与实际编码不匹配`);
-          break;
-        }
+        } else { fields['_unknown_'+fieldNum] = `bytes[${lenN}]`; }
+      } else if(wireType === 5) {
+        if(off + 4 > buf.length) { errors.push(`field ${fieldLabel}: 读取32位数据时越界`); break; }
         if(fieldDef) {
           const {name, typeSpec} = fieldDef;
           const baseType = typeSpec.startsWith('r:') ? typeSpec.slice(2) : typeSpec;
           let val;
           try {
             const dv = new DataView(buf.buffer, buf.byteOffset + off, 4);
-            if(baseType === 'f32') {
-              val = dv.getFloat32(true);
-              val = Math.round(val * 10000) / 10000;
-            } else if(baseType === 's32' || baseType === 'i32') {
-              val = dv.getInt32(true);
-            } else {
-              val = dv.getUint32(true);
-            }
-            if(typeSpec.startsWith('r:')) {
-              if(!fields[name]) fields[name] = [];
-              fields[name].push(val);
-            } else {
-              fields[name] = val;
-            }
-          } catch(e) {
-            errors.push(`field ${fieldLabel}: 32位 ${baseType} 解码失败 — ${e.message}`);
-            break;
-          }
+            if(baseType === 'f32') { val = dv.getFloat32(true); val = Math.round(val * 10000) / 10000; }
+            else if(baseType === 's32' || baseType === 'i32') val = dv.getInt32(true);
+            else val = dv.getUint32(true);
+            if(typeSpec.startsWith('r:')) { if(!fields[name]) fields[name] = []; fields[name].push(val); }
+            else { fields[name] = val; }
+          } catch(e) { errors.push(`field ${fieldLabel}: 32位 ${baseType} 解码失败 — ${e.message}`); break; }
         }
         off += 4;
       } else {
-        // wire type 3/4 (start/end group, 已废弃) 或 6/7 (保留)
-        const wtNames = {3:'Start Group(已废弃)',4:'End Group(已废弃)',6:'保留',7:'保留'};
-        errors.push(`field ${fieldLabel}: 不支持的 wire type ${wireType} (${wtNames[wireType]||'未知'}) — proto schema 可能与实际编码不匹配，或数据包含非标准扩展字段`);
-        // 跳过此字段无法确定长度，中断解码
+        errors.push(`field ${fieldLabel}: 不支持的 wire type ${wireType}`);
         break;
       }
     } catch(e) {
-      const errMsg = String(e.message);
-      // 解析常见 DataView 越界错误，给出友好说明
-      if(errMsg.includes('Offset is outside the bounds') || errMsg.includes('out of range') || errMsg.includes('bounds of DataView')) {
-        errors.push(`field ${fieldLabel}: 数据读取越界 — ${errMsg}。原因：proto schema 中该字段定义的类型与实际编码的 wire type 不匹配（例如schema定义为固定32/64位，但实际数据是 varint），或者数据在序列化后被截断`);
-      } else {
-        errors.push(`field ${fieldLabel}: ${errMsg}`);
-      }
-      // 遇到异常中断解码，因为 offset 状态已不可靠
+      errors.push(`field ${fieldLabel}: ${e.message}`);
       break;
     }
   }
@@ -525,32 +511,17 @@ function decodePackedRepeated(buf, type) {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   switch(type) {
     case 'u32': case 'i32': case 's32': case 'bool':
-      while(off < buf.length) {
-        const {value, offset} = pbReadVarint(buf, off);
-        off = offset;
-        vals.push(decodeVarintValue(value, type));
-      }
+      while(off < buf.length) { const {value, offset} = pbReadVarint(buf, off); off = offset; vals.push(decodeVarintValue(value, type)); }
       break;
     case 'f32':
-      while(off + 4 <= buf.length) {
-        vals.push(Math.round(dv.getFloat32(off, true) * 10000) / 10000);
-        off += 4;
-      }
+      while(off + 4 <= buf.length) { vals.push(Math.round(dv.getFloat32(off, true) * 10000) / 10000); off += 4; }
       if(off < buf.length) vals.push('⚠️ 剩余'+(buf.length-off)+'B无法解码为f32');
       break;
     case 'u64': case 'i64': case 's64':
-      while(off < buf.length) {
-        const {value, offset} = pbReadVarint(buf, off);
-        off = offset;
-        vals.push(Number(value));
-      }
+      while(off < buf.length) { const {value, offset} = pbReadVarint(buf, off); off = offset; vals.push(Number(value)); }
       break;
     default:
-      while(off < buf.length) {
-        const {value, offset} = pbReadVarint(buf, off);
-        off = offset;
-        vals.push(Number(value));
-      }
+      while(off < buf.length) { const {value, offset} = pbReadVarint(buf, off); off = offset; vals.push(Number(value)); }
   }
   return vals;
 }
@@ -568,7 +539,6 @@ function renderProtoTree(data, depth=0) {
   }
   const msgName = data._msgName;
   const schema = PROTO_SCHEMA[msgName];
-  const isTopLevel = depth === 0;
   let html = '';
   const usedKeys = new Set(['_msgName', '_errors']);
 
@@ -576,53 +546,39 @@ function renderProtoTree(data, depth=0) {
     usedKeys.add(name);
     const val = data[name];
     if(val === undefined || val === null) continue;
-
     const baseType = typeSpec.startsWith('r:') ? typeSpec.slice(2) : typeSpec;
     const isRepeated = typeSpec.startsWith('r:');
     const isMsg = baseType.startsWith('msg:');
-
     html += `<div class="field">`;
     html += `<span class="field-num">${num}.</span>`;
     html += `<span class="field-key">${escHtml(name)}</span>`;
     html += `<span class="field-type">${escHtml(typeSpec)}</span>`;
     html += `<span class="field-val">`;
-
     if(isMsg) {
       const subMsgName = baseType.slice(4);
       const label = MSG_LABELS[subMsgName] || subMsgName;
       if(isRepeated) {
         if(Array.isArray(val) && val.length > 0) {
           html += `<span class="msg-name" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">[${label}] x${val.length}</span>`;
-          html += `<div class="msg-body" style="display:none">${val.map((v,i) =>
-            `<div class="array-idx">[${i}]</div><div style="padding-left:12px">${renderProtoTree(v, depth+1)}</div>`
-          ).join('')}</div>`;
-        } else {
-          html += `<span class="null-val">[]</span>`;
-        }
+          html += `<div class="msg-body" style="display:none">${val.map((v,i) => `<div class="array-idx">[${i}]</div><div style="padding-left:12px">${renderProtoTree(v, depth+1)}</div>`).join('')}</div>`;
+        } else { html += `<span class="null-val">[]</span>`; }
       } else {
         html += `<span class="msg-name" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">${escHtml(label)}</span>`;
         html += `<div class="msg-body" style="display:none">${renderProtoTree(val, depth+1)}</div>`;
       }
-    } else {
-      html += formatProtoValue(val, baseType);
-    }
-
+    } else { html += formatProtoValue(val, baseType); }
     html += `</span></div>`;
   }
 
-  // Show unknown fields
   for(const [k, v] of Object.entries(data)) {
     if(usedKeys.has(k)) continue;
     if(k.startsWith('_unknown_')) {
       html += `<div class="field"><span class="field-num">?</span><span class="field-key" style="color:#c97">${escHtml(k)}</span><span class="field-val">${escHtml(String(v))}</span></div>`;
     }
   }
-
-  // Show errors
   if(data._errors) {
     html += data._errors.map(e => `<div style="color:#A32D2D;font-size:11px">⚠️ ${escHtml(e)}</div>`).join('');
   }
-
   return html;
 }
 
@@ -643,7 +599,7 @@ function escHtml(s) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  Detail TLV 常量 & 解析器（与 v3 相同，严格对应 sport_record_save_detail.h）
+//  Detail TLV 常量 & 解析器
 // ══════════════════════════════════════════════════════════════════
 const TAG_NAMES = {
   1:'TIMESTAMP',2:'GPS_FULL',3:'GPS_DIFF',4:'EVENT',5:'RT_GROUP_1',6:'RT_GROUP_2',
@@ -670,20 +626,6 @@ const EVENT_NAMES = {1:'START',2:'AUTO_PAUSE',3:'AUTO_RESUME',4:'PAUSE',5:'RESUM
 const LAP_TYPES   = {0:'手动分段',1:'自动分段',2:'分组',3:'分段(融合)',4:'训练分段'};
 const HYROX_TYPES = {0:'无',1:'跑步',2:'滑雪机',3:'推雪橇',4:'拉雪橇',5:'波比跳远',6:'划船机',7:'农夫行走',8:'沙袋弓步',9:'药球',10:'休息'};
 const WEIGHT_UNITS= {0:'kg',1:'lb',11:'kg(小数)',12:'lb(小数)',13:'RM',14:'RPE',15:'自重'};
-
-const CHART_TYPES = {
-  0:'HR心率',1:'Speed速度',2:'RowStrokeFreq划频',3:'SwimStrokeSpeed划水速率',
-  4:'Pace配速',5:'Altitude海拔',6:'SkipRopeFreq跳绳频率',7:'GolfBeat高尔夫节奏',
-  8:'GolfAngle高尔夫平面',9:'Stress压力',10:'Temperature温度',11:'TE效果',
-  12:'GolfUpDownTime上下杆时间',13:'RTPC体能状态',14:'RunPower跑步功率',
-  15:'AirPressure气压',16:'BodyTemp体温',17:'Depth深度',18:'EquivPace等效配速',
-  19:'CyclingPower骑行功率',20:'Cadence踏频',
-};
-
-const TAG_TO_CHART = {
-  8:[0],5:[1,4],6:[2],7:[5],12:[9],13:[10],18:[19],26:[1],27:[20],28:[17],29:[14],
-  0x041F:[15],0x091F:[1],0x0A1F:[14],0x0B1F:[18],
-};
 
 const r8=(dv,o)=>dv.getUint8(o),r16=(dv,o)=>dv.getUint16(o,true),
       r32=(dv,o)=>dv.getUint32(o,true),ri32=(dv,o)=>dv.getInt32(o,true),
@@ -747,8 +689,7 @@ function parsePayload(tag, bytes) {
       for(let i=0;i<rep_core_count&&o+4<=n;i++){rep_core_stability.push(Math.round(rf32(dv,o)*10000)/10000);o+=4;}
       const durs=rep_start_ms.map((s,i)=>rep_end_ms[i]!=null?rep_end_ms[i]-s:null).filter(x=>x!=null);
       const avgDur=durs.length?Math.round(durs.reduce((a,b)=>a+b,0)/durs.length):null;
-      const expected=12+rep_count*8+2+rep_count*4;
-      return {relative_time_ms:rel,equipment_weight_kg:eq_weight,rest_time_ms:rest,rep_count,rep_start_ms,rep_end_ms,rep_core_count,rep_core_stability,_avg_rep_duration_ms:avgDur,_parsed_bytes:o,_total_bytes:n,_expected_bytes:expected};
+      return {relative_time_ms:rel,equipment_weight_kg:eq_weight,rest_time_ms:rest,rep_count,rep_start_ms,rep_end_ms,rep_core_count,rep_core_stability,_avg_rep_duration_ms:avgDur,_parsed_bytes:o,_total_bytes:n};
     }
     case 0x0F1F: { if(n<7)return null; return {relative_time_ms:r16(dv,0),block_idx:r8(dv,2),block_type:r8(dv,3),block_duration_ms:r32(dv,4)>0x1000000?r32(dv,3):r32(dv,4)}; }
     case 0x101F: { if(n<9)return null; return {relative_time_ms:r16(dv,0),block_idx:r8(dv,2),round_idx:r8(dv,3),avg_hr:r8(dv,4),round_duration_ms:r32(dv,5)}; }
@@ -763,20 +704,15 @@ function isKnownTag(tag) {
   return false;
 }
 
-// RTL-Length 编码读取（对应固件 RTL_Length 规则）
-// 1. value < 0x80:          1 字节 [length]                     → 直接读取
-// 2. 0x80 ≤ value ≤ 0xFF:   2 字节 [0x81, length]             → length[1] 为实际长度
-// 3. value > 0xFF:          3 字节 [0x82, high, low] (大端)    → length[1:2] 组成实际长度
 function readRTLLength(raw, pos) {
   if(pos>=raw.length)return null;
   const b=raw[pos];
   if(b<0x80){return{length:b,lenBytes:1};}
   if(b===0x81){return(pos+1<raw.length)?{length:raw[pos+1],lenBytes:2}:null;}
   if(b===0x82){return(pos+2<raw.length)?{length:(raw[pos+1]<<8)|raw[pos+2],lenBytes:3}:null;}
-  return null; // 0x80, 0x83~0xFF 均为非法 RTL 首字节
+  return null;
 }
 
-// 尝试在指定位置读取一个完整的 TLV 记录（tag + RTL-Length），成功返回对象，失败返回 null
 function tryReadTLV(raw, pos, total) {
   if(pos>=total)return null;
   const first=raw[pos];
@@ -798,7 +734,6 @@ function tryReadTLV(raw, pos, total) {
   return{tag,length:rtl.length,hdrSize,dataStart,dataEnd,lenEnc:rtl.lenBytes===1?'1B':rtl.lenBytes===2?'0x81+1B':'0x82+2B'};
 }
 
-// 向前扫描，找到连续 MC 条合法 TLV 记录的位置（用于数据损坏后的恢复）
 function findRecoveryPoint(raw, pos, total) {
   const MC=3;
   for(let s=pos;s<total;s++){
@@ -820,26 +755,15 @@ function parseDetailBinary(buffer, onProgress) {
   while(pos<total-1) {
     const tlv=tryReadTLV(raw,pos,total);
     if(!tlv){
-      // 解析失败，判断原因
       const first=raw[pos];
-      if(first>=1&&first<=30){
-        errors.push({offset:pos,tag:first,msg:`TAG ${first} RTL-Length 解析失败（可能数据损坏）`});
-      }else if(pos+1<total){
+      if(first>=1&&first<=30){errors.push({offset:pos,tag:first,msg:`TAG ${first} RTL-Length 解析失败`});}
+      else if(pos+1<total){
         const fullTag=first|(raw[pos+1]<<8);
-        if(!isKnownTag(fullTag)){
-          errors.push({offset:pos,tag:fullTag,msg:`未知TAG 0x${fullTag.toString(16).toUpperCase()}`});
-        }else{
-          errors.push({offset:pos,tag:fullTag,msg:`TAG 0x${fullTag.toString(16).toUpperCase()} RTL-Length 解析失败`});
-        }
-      }else{
-        errors.push({offset:pos,tag:first,msg:`pos=${pos}: EOF`});
-      }
-      // 尝试扫描恢复
+        if(!isKnownTag(fullTag)){errors.push({offset:pos,tag:fullTag,msg:`未知TAG 0x${fullTag.toString(16).toUpperCase()}`});}
+        else{errors.push({offset:pos,tag:fullTag,msg:`TAG 0x${fullTag.toString(16).toUpperCase()} RTL-Length 解析失败`});}
+      }else{errors.push({offset:pos,tag:first,msg:`pos=${pos}: EOF`});}
       const rp=findRecoveryPoint(raw,pos+1,total);
-      if(rp>0){
-        errors.push({offset:pos,tag:first,msg:`跳过 ${rp-pos} 字节恢复解析`});
-        pos=rp;continue;
-      }
+      if(rp>0){errors.push({offset:pos,tag:first,msg:`跳过 ${rp-pos} 字节恢复解析`});pos=rp;continue;}
       stopReason=`offset=${pos}: 解析失败且无法恢复`;
       break;
     }
@@ -861,6 +785,9 @@ function parseDetailBinary(buffer, onProgress) {
 //  UI 状态 & 事件
 // ══════════════════════════════════════════════════════════════════
 let detailFile=null, summaryFile=null, parsedDetailResult=null, summaryParsedResult=null, mainChart=null;
+// JSON 查看器状态
+let jsonViewerTagName=null, jsonViewerRecords=[], jsonViewerFiltered=null, jsonViewerPage=0;
+const JSON_PAGE_SIZE=200;
 
 function updateButtons() {
   document.getElementById('btn-parse-detail').disabled=!detailFile;
@@ -868,6 +795,7 @@ function updateButtons() {
 }
 function onDetailFile(inp){detailFile=inp.files[0];if(!detailFile)return;const z=document.getElementById('zone-detail');z.classList.add('has-file');z.innerHTML=`<div class="fn">${detailFile.name}</div><div class="hint">${(detailFile.size/1024).toFixed(1)} KB</div>`;updateButtons();}
 function onSummaryFile(inp){summaryFile=inp.files[0];if(!summaryFile)return;const z=document.getElementById('zone-summary');z.classList.add('has-file');z.innerHTML=`<div class="fn">${summaryFile.name}</div><div class="hint">${(summaryFile.size/1024).toFixed(1)} KB</div>`;updateButtons();}
+
 function onDetailH(inp){
   if(inp.files[0]){
     const f=inp.files[0];
@@ -890,7 +818,6 @@ function onSummaryProto(inp){
     try{localStorage.setItem('sport_parser_summary_proto_name',f.name);}catch(e){}
   }
 }
-// 页面加载时恢复上次保存的文件名
 (function restoreSavedNames(){
   try{
     const hn=localStorage.getItem('sport_parser_detail_h_name');
@@ -912,12 +839,9 @@ function onSummaryProto(inp){
   }catch(e){}
 })();
 
-// Detail 独立 status/log/progress
 function setDetailStatus(msg,type){const el=document.getElementById('parse-status-detail');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function setDetailProgress(pct){const p=document.getElementById('prog-detail'),b=document.getElementById('prog-bar');p.style.display='block';b.style.width=pct+'%';if(pct>=100)setTimeout(()=>{p.style.display='none';},600);}
 function detailLog(msg,cls){const el=document.getElementById('parse-log-detail');el.style.display='block';if(cls){const sp=document.createElement('span');sp.className=cls;sp.textContent=msg+'\n';el.appendChild(sp);}else{el.textContent+=msg+'\n';}el.scrollTop=el.scrollHeight;}
-
-// Summary 独立 status/log（无进度条）
 function setSummaryStatus(msg,type){const el=document.getElementById('parse-status-summary');el.textContent=msg;el.className='status'+(type?' '+type:'');}
 function summaryLog(msg,cls){const el=document.getElementById('parse-log-summary');el.style.display='block';if(cls){const sp=document.createElement('span');sp.className=cls;sp.textContent=msg+'\n';el.appendChild(sp);}else{el.textContent+=msg+'\n';}el.scrollTop=el.scrollHeight;}
 
@@ -962,9 +886,6 @@ async function doParseSummary() {
   let result;
   try{
     const raw=new Uint8Array(buffer);
-    // summary.data 固件格式：前2字节为自定义头部 [0x00, 0x80]，protobuf 从 offset 2 开始
-    // 固件代码：sportSummaryInfo[0]=0; sportSummaryInfo[1]=0x80;
-    //           pb_ostream_from_buffer(&sportSummaryInfo[2], ...);
     const SUMMARY_HDR_SIZE=2;
     let headerOk=false;
     if(raw.length>=SUMMARY_HDR_SIZE && raw[0]===0x00 && raw[1]===0x80){
@@ -978,15 +899,11 @@ async function doParseSummary() {
     result._file_size=buffer.byteLength;
     result._header_detected=headerOk;
     const errCount=result._errors?result._errors.length:0;
-    if(errCount>0){
-      summaryLog(`Summary 解码完成，${errCount} 条错误（部分字段可能显示不完整）`);
-      result._errors.forEach(e=>summaryLog('  ⚠️ '+e));
-    }else{
-      summaryLog(`Summary 解码完成，无错误`);
-    }
+    if(errCount>0){summaryLog(`Summary 解码完成，${errCount} 条错误`);result._errors.forEach(e=>summaryLog('  ⚠️ '+e));}
+    else{summaryLog(`Summary 解码完成，无错误`);}
   }catch(e){
     summaryLog('Summary 解码失败: '+e.message,'warn');
-    result={error:e.message,_file_size:buffer.byteLength};
+    result={error:e.message,_file_size:buffer?buffer.byteLength:0};
   }
   summaryParsedResult=result;
   setSummaryStatus(`Summary 完成`,result.error?'err':'ok');
@@ -1009,64 +926,37 @@ function renderSummaryResult(data) {
   const card=document.getElementById('card-summary');
   const errBlock=document.getElementById('error-block-summary');
   const errList=document.getElementById('error-list-summary');
-
-  if(!data||data.error) {
+  if(!data||data.error){
     card.style.display='';
     document.getElementById('summary-content').innerHTML=`<div style="color:#A32D2D">解码失败: ${escHtml(data?.error||'未知错误')}</div>`;
-    errBlock.style.display='none';
-    return;
+    errBlock.style.display='none';return;
   }
-
   card.style.display='';
-  // Show file size info
   let headerHtml=`<div style="font-size:11px;color:#888;margin-bottom:8px">文件大小: ${(data._file_size/1024).toFixed(1)} KB | 固件头部: ${data._header_detected?'✅ [0x00, 0x80]':'❌ 未检测到'} | 版本: ${escHtml(data.version||'(无)')}</div>`;
-
   document.getElementById('summary-content').innerHTML=headerHtml+`<div class="proto-tree">${renderProtoTree(data)}</div>`;
-
-  // Show summary errors with categorization
-  if(data._errors&&data._errors.length>0) {
+  if(data._errors&&data._errors.length>0){
     errBlock.style.display='';
-    // Categorize errors
-    const categories = [];
-    const boundsErrs = data._errors.filter(e => String(e).includes('越界') || String(e).includes('bounds of DataView') || String(e).includes('truncated'));
-    const wireErrs = data._errors.filter(e => String(e).includes('wire type'));
-    const decodeErrs = data._errors.filter(e => !boundsErrs.includes(e) && !wireErrs.includes(e));
-
-    let html = '';
-    if(boundsErrs.length) {
-      html += `<div style="margin-bottom:8px;padding:6px 10px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E">
-        <b>📦 数据截断 (${boundsErrs.length} 处)</b>：字段的实际数据量不足（剩余字节数少于该类型需要的长度）。常见原因：运动中途保存的 summary 数据不完整，或 proto schema 定义的字段类型与固件实际编码方式不一致。</div>`;
-      boundsErrs.forEach(e => { html += `<li style="color:#92400E">${escHtml(String(e))}</li>`; });
-    }
-    if(wireErrs.length) {
-      html += `<div style="margin-bottom:8px;padding:6px 10px;background:#FEE2E2;border-radius:6px;font-size:12px;color:#991B1B">
-        <b>⚠️ Wire Type 不匹配 (${wireErrs.length} 处)</b>：字节流中的 wire type 与 proto schema 定义不匹配。常见原因：JS 端的 proto schema 与固件使用的 .proto 版本不一致，某个字段在固件端改了类型但 JS schema 未同步更新。</div>`;
-      wireErrs.forEach(e => { html += `<li style="color:#991B1B">${escHtml(String(e))}</li>`; });
-    }
-    if(decodeErrs.length) {
-      html += `<div style="margin-bottom:8px;padding:6px 10px;background:#F3E8FF;border-radius:6px;font-size:12px;color:#6B21A8">
-        <b>🔧 解码异常 (${decodeErrs.length} 处)</b>：</div>`;
-      decodeErrs.forEach(e => { html += `<li>${escHtml(String(e))}</li>`; });
-    }
+    const boundsErrs=data._errors.filter(e=>String(e).includes('越界')||String(e).includes('bounds of DataView'));
+    const wireErrs=data._errors.filter(e=>String(e).includes('wire type'));
+    const decodeErrs=data._errors.filter(e=>!boundsErrs.includes(e)&&!wireErrs.includes(e));
+    let html='';
+    if(boundsErrs.length){html+=`<div style="margin-bottom:8px;padding:6px 10px;background:#FEF3C7;border-radius:6px;font-size:12px;color:#92400E"><b>📦 数据截断 (${boundsErrs.length} 处)</b></div>`;boundsErrs.forEach(e=>{html+=`<li style="color:#92400E">${escHtml(String(e))}</li>`;});}
+    if(wireErrs.length){html+=`<div style="margin-bottom:8px;padding:6px 10px;background:#FEE2E2;border-radius:6px;font-size:12px;color:#991B1B"><b>⚠️ Wire Type 不匹配 (${wireErrs.length} 处)</b></div>`;wireErrs.forEach(e=>{html+=`<li style="color:#991B1B">${escHtml(String(e))}</li>`;});}
+    if(decodeErrs.length){html+=`<div style="margin-bottom:8px;padding:6px 10px;background:#F3E8FF;border-radius:6px;font-size:12px;color:#6B21A8"><b>🔧 解码异常 (${decodeErrs.length} 处)</b></div>`;decodeErrs.forEach(e=>{html+=`<li>${escHtml(String(e))}</li>`;});}
     errList.innerHTML=html;
-  } else {
-    errBlock.style.display='none';
-  }
+  }else{errBlock.style.display='none';}
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  渲染 Detail
+//  渲染 Detail 结果
 // ══════════════════════════════════════════════════════════════════
 function renderDetailResult(result) {
-  // Errors
   const errBlock=document.getElementById('error-block'),errList=document.getElementById('error-list');
   if(result.errors.length>0){
     errBlock.style.display='';errList.innerHTML=result.errors.map(e=>`<li>offset=<b>${e.offset}</b> TAG=<b>${TAG_NAMES[e.tag]||e.tag}</b>: ${escHtml(e.msg)}</li>`).join('');
-  } else {errBlock.style.display='none';}
+  }else{errBlock.style.display='none';}
 
-  // Stats
-  const card=document.getElementById('card-detail-stats');
-  card.style.display='';
+  const card=document.getElementById('card-detail-stats');card.style.display='';
   const tags={};for(const[k,v]of Object.entries(result.groups))tags[k]=v.length;
   const wrap=document.getElementById('metrics-wrap');
   const total_dur_s=estimateDuration(result);
@@ -1075,13 +965,36 @@ function renderDetailResult(result) {
 
   // TAG grid
   const grid=document.getElementById('tag-grid');grid.innerHTML='';
+  // 可绘图 TAG
   const CHARTABLE={'RT_HEARTRATE':'心率','RT_GROUP_1':'速度/配速','RT_ALTITUDE':'海拔','RT_PRESSURE':'压力','TEMPERATURE':'温度','RT_POWER':'功率','RT_CADENCE':'踏频','RUNNING_POWER':'跑步功率','AIR_PRESSURE':'气压','DEPTH':'深度','BAROMETER_GROUP':'气压高度','SEC_LEVEL_DATA':'速度(秒级)','EQUIVALENT_DATA':'等效配速'};
   const errorTags=new Set(result.errors.map(e=>TAG_NAMES[e.tag]||String(e.tag)));
+
   Object.entries(tags).sort((a,b)=>b[1]-a[1]).forEach(([name,cnt])=>{
-    const el=document.createElement('div');const hasErr=errorTags.has(name);const isChart=!!CHARTABLE[name];
-    el.className='tag-card'+(isChart?' clickable':'')+(hasErr?' has-error':'');
-    el.innerHTML=`<div class="tname">${name}${isChart?' 📈':''}${hasErr?' ⚠️':''}</div><div class="tcount">${cnt}</div>${hasErr?'<div class="terror">含错误数据</div>':''}`;
-    if(isChart){el.onclick=()=>{document.querySelectorAll('.tag-card').forEach(c=>c.classList.remove('selected'));el.classList.add('selected');showChart(name,result.groups[name]);};}
+    const el=document.createElement('div');
+    const hasErr=errorTags.has(name);
+    const isChart=!!CHARTABLE[name];
+    // 图表 TAG: 红色hover；非图表 TAG: 蓝色hover，可查看 JSON
+    if(isChart) {
+      el.className='tag-card clickable'+(hasErr?' has-error':'');
+      el.innerHTML=`<div class="tname">${name} 📈</div><div class="tcount">${cnt}</div>${hasErr?'<div class="terror">含错误数据</div>':''}`;
+      el.title='点击查看图表';
+      el.onclick=()=>{
+        document.querySelectorAll('.tag-card').forEach(c=>{c.classList.remove('selected');c.classList.remove('selected-json');});
+        el.classList.add('selected');
+        document.getElementById('card-json-viewer').style.display='none';
+        showChart(name,result.groups[name]);
+      };
+    } else {
+      el.className='tag-card clickable-json'+(hasErr?' has-error':'');
+      el.innerHTML=`<div class="tname">${name} 🗂️</div><div class="tcount-blue">${cnt}</div>${hasErr?'<div class="terror">含错误数据</div>':''}`;
+      el.title='点击查看全部 JSON 数据';
+      el.onclick=()=>{
+        document.querySelectorAll('.tag-card').forEach(c=>{c.classList.remove('selected');c.classList.remove('selected-json');});
+        el.classList.add('selected-json');
+        document.getElementById('card-chart').style.display='none';
+        showJsonViewer(name,result.groups[name]);
+      };
+    }
     grid.appendChild(el);
   });
 }
@@ -1093,6 +1006,115 @@ function estimateDuration(result){
 }
 
 function fmtTime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=Math.floor(s%60);return h>0?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`;}
+
+// ══════════════════════════════════════════════════════════════════
+//  JSON 查看器
+// ══════════════════════════════════════════════════════════════════
+function showJsonViewer(tagName, records) {
+  jsonViewerTagName = tagName;
+  jsonViewerRecords = records;
+  jsonViewerFiltered = null;
+  jsonViewerPage = 0;
+  document.getElementById('json-viewer-title').textContent = tagName + ' — 全部数据';
+  document.getElementById('json-viewer-badge').textContent = records.length + ' 条';
+  document.getElementById('json-search-input').value = '';
+  document.getElementById('card-json-viewer').style.display = '';
+  renderJsonPage();
+  document.getElementById('card-json-viewer').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeJsonViewer() {
+  document.getElementById('card-json-viewer').style.display = 'none';
+  document.querySelectorAll('.tag-card').forEach(c => { c.classList.remove('selected-json'); });
+  jsonViewerTagName = null;
+}
+
+function onJsonSearch(query) {
+  if(!query.trim()) {
+    jsonViewerFiltered = null;
+  } else {
+    const q = query.toLowerCase();
+    jsonViewerFiltered = jsonViewerRecords.filter(r => {
+      return JSON.stringify(r).toLowerCase().includes(q);
+    });
+  }
+  jsonViewerPage = 0;
+  renderJsonPage();
+}
+
+function jsonPagePrev() { if(jsonViewerPage > 0) { jsonViewerPage--; renderJsonPage(); } }
+function jsonPageNext() {
+  const list = jsonViewerFiltered || jsonViewerRecords;
+  const maxPage = Math.ceil(list.length / JSON_PAGE_SIZE) - 1;
+  if(jsonViewerPage < maxPage) { jsonViewerPage++; renderJsonPage(); }
+}
+
+function renderJsonPage() {
+  const list = jsonViewerFiltered || jsonViewerRecords;
+  const total = list.length;
+  const start = jsonViewerPage * JSON_PAGE_SIZE;
+  const end = Math.min(start + JSON_PAGE_SIZE, total);
+  const page = list.slice(start, end);
+
+  // 更新 badge
+  document.getElementById('json-viewer-badge').textContent = (jsonViewerFiltered ? `${total} 条（已过滤）` : `${total} 条`);
+
+  // 分页控件
+  const pager = document.getElementById('json-pager');
+  if(total > JSON_PAGE_SIZE) {
+    pager.style.display = 'flex';
+    document.getElementById('json-pager-info').textContent = `第 ${start+1}–${end} 条 / 共 ${total} 条`;
+  } else {
+    pager.style.display = 'none';
+  }
+
+  // 渲染 JSON 文本，搜索词高亮
+  const query = document.getElementById('json-search-input').value.trim();
+  let text = JSON.stringify(page, null, 2);
+
+  const body = document.getElementById('json-body');
+  body.style.userSelect = 'text';
+  body.style.webkitUserSelect = 'text';
+
+  if(query) {
+    // 高亮搜索词（转义特殊字符）
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(${escaped})`, 'gi');
+    body.innerHTML = escHtml(text).replace(
+      new RegExp(escHtml(query).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+      m => `<mark>${m}</mark>`
+    );
+  } else {
+    // 带语法高亮的 JSON 着色
+    body.innerHTML = syntaxHighlightJson(text);
+  }
+}
+
+function syntaxHighlightJson(json) {
+  // 简单 JSON 语法着色
+  return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function(match) {
+    let cls = 'color:#059669'; // number - green
+    if(/^"/.test(match)) {
+      if(/:$/.test(match)) cls = 'color:#3B82F6'; // key - blue
+      else cls = 'color:#c026d3'; // string - purple
+    } else if(/true|false/.test(match)) cls = 'color:#d97706'; // bool - orange
+    else if(/null/.test(match)) cls = 'color:#9ca3af'; // null - gray
+    return `<span style="${cls}">${escHtml(match)}</span>`;
+  });
+}
+
+function doDownloadTagJson() {
+  if(!jsonViewerTagName || !jsonViewerRecords) return;
+  const list = jsonViewerFiltered || jsonViewerRecords;
+  const data = { tag: jsonViewerTagName, total: list.length, records: list };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = jsonViewerTagName + '_data.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 // ══════════════════════════════════════════════════════════════════
 //  图表渲染
